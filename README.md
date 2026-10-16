@@ -9,6 +9,7 @@ Built with **Next.js (App Router)** and **PostgreSQL** (Vercel Postgres / Neon).
 - Book a slot for a time range, with double-booking prevented
 - Mock payment that unlocks a QR code
 - Admin: scan the QR for entry, generate an exit OTP, manage slots, view the dashboard
+- Admin: add new parking locations (click on a map to set the position) with auto-created slots
 
 ## Deploy on Vercel
 1. On vercel.com choose **Add New → Project** and **import this GitHub repo**. The framework is detected as Next.js.

@@ -13,6 +13,7 @@ export default function Nav() {
       {user && <Link href="/my-bookings">My Bookings</Link>}
       {user?.role === 'admin' && <>
         <Link href="/admin">Dashboard</Link>
+        <Link href="/admin/locations">Locations</Link>
         <Link href="/admin/slots">Slots</Link>
         <Link href="/admin/scan">Scan</Link>
       </>}
