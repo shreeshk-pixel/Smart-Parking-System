@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Find Parking{% endblock %}
+{% block content %}
+<h1>Find Parking</h1>
+<div class="layout">
+  <div id="map"></div>
+  <div class="panel">
+    <h2 id="locName">Click a marker on the map</h2>
+    <p id="locInfo" class="muted"></p>
+    <div id="bookingBox" hidden>
+      <label>Start <input type="datetime-local" id="start"></label>
+      <label>End <input type="datetime-local" id="end"></label>
+      <button id="check" class="btn">Check slots</button>
+      <div id="slots" class="slot-grid"></div>
+      <p class="muted">Green is free and red is taken. Click a green slot to book it.</p>
+      {% if user %}
+        <label>Vehicle number <input id="vehicle" placeholder="KA22AB1234"></label>
+        <button id="bookBtn" class="btn" disabled>Book selected slot</button>
+      {% else %}
+        <p><a href="{{ url_for('login') }}">Log in</a> to book a slot.</p>
+      {% endif %}
+      <p id="bookMsg"></p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/map.js') }}"></script>
+{% endblock %}

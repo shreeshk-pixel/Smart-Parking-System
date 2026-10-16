@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<h1>Admin Dashboard</h1>
+<div class="stats">
+  <div class="stat"><span id="total">…</span>Active slots</div>
+  <div class="stat"><span id="occupied">…</span>Occupied now</div>
+  <div class="stat"><span id="free">…</span>Free now</div>
+  <div class="stat"><span id="today">…</span>Bookings today</div>
+  <div class="stat"><span id="revenue">…</span>Revenue (Rs)</div>
+</div>
+<h2>Recent bookings</h2>
+<table class="table"><thead><tr><th>#</th><th>User</th><th>Vehicle</th><th>Location / Slot</th><th>Time</th><th>Status</th><th>Payment</th></tr></thead>
+<tbody id="recent"></tbody></table>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/common.js') }}"></script>
+<script>
+api('/api/admin_stats').then(s => {
+  total.textContent = s.total_slots; occupied.textContent = s.occupied_now;
+  free.textContent = s.total_slots - s.occupied_now; today.textContent = s.today_bookings;
+  revenue.textContent = s.revenue;
+  recent.innerHTML = s.recent.map(b => `<tr><td>${b.id}</td><td>${esc(b.user_name)}</td><td>${esc(b.vehicle_number)}</td>
+    <td>${esc(b.location_name)} / ${esc(b.slot_number)}</td><td>${esc(b.start_time)}<br>${esc(b.end_time)}</td>
+    <td><span class="tag ${b.status}">${b.status}</span></td><td><span class="tag ${b.payment_status}">${b.payment_status}</span></td></tr>`).join('');
+}).catch(e => alert(e.message));
+</script>
+{% endblock %}
