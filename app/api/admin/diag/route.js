@@ -1,6 +1,5 @@
-// GET /api/admin/diag  (admin only) -> where the function runs, where the database is, and how long
+// GET /api/admin/diag  (admin only) -> where the function runs and how long
 // a database round trip takes from here. Used to check that the function region matches the database.
-import dns from "dns/promises";
 import { pool } from "@/lib/db";
 import { ok, needAdmin, handle } from "@/lib/server";
 
@@ -10,7 +9,6 @@ export const GET = handle(async () => {
   if (err) return err;
   const url = new URL(process.env.DATABASE_URL || process.env.POSTGRES_URL || "postgres://localhost/x");
   const host = url.hostname;
-  let ip = null; try { ip = (await dns.lookup(host)).address; } catch {}
   const t = async (fn) => { const a = performance.now(); await fn(); return +(performance.now() - a).toFixed(1); };
   // A brand-new connection (TCP + TLS + login) vs. queries on a pooled connection
   const pg = (await import("pg")).default;
@@ -22,9 +20,10 @@ export const GET = handle(async () => {
   const ver = (await pool.query("SELECT version() AS v, current_setting('TimeZone') AS tz")).rows[0];
   return ok({
     function_region: process.env.VERCEL_REGION || "local",
-    db_host: host.replace(/^[^.]+/, "***"), db_ip: ip, db_port: url.port,
+    // No database host, IP or port here on purpose (less for an attacker to learn). Region and timings only.
+    session_secret_strong: (process.env.SESSION_SECRET || "").length >= 32,
     new_connection_ms: connect_ms, select1_ms: pooled,
     pool: { total: pool.totalCount, idle: pool.idleCount, waiting: pool.waitingCount },
-    db_version: ver.v.split(" ").slice(0, 2).join(" "), db_timezone: ver.tz,
+    db_timezone: ver.tz,
   });
 });

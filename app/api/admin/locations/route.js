@@ -6,6 +6,7 @@
 import { query, transaction } from "@/lib/db";
 import { ok, fail, needAdmin, readBody, handle } from "@/lib/server";
 import { FLOOR_ORDER } from "@/lib/floors";
+import { PLACE_NAME, ADDRESS, check, audited } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -18,14 +19,18 @@ export const GET = handle(async () => {
     GROUP BY l.id ORDER BY l.name`));
 });
 
-export const POST = handle(async (req) => {
+export const POST = handle(audited("location_add", async (req) => {
   const [, err] = await needAdmin();
   if (err) return err;
   const b = await readBody(req);
 
   // 1. Read and check the inputs
-  const name = String(b.name || "").trim();
-  const address = String(b.address || "").trim();
+  if (!String(b.name || "").trim() || !String(b.address || "").trim()) return fail("name and address are required");
+  // Names and addresses are shown on the map and in reports: no HTML characters, sensible length
+  const [name, badName] = check(PLACE_NAME, String(b.name));
+  if (badName) return badName;
+  const [address, badAddr] = check(ADDRESS, String(b.address));
+  if (badAddr) return badAddr;
   const lat = Number(b.latitude);
   const lng = Number(b.longitude);
   const price = b.price_per_hour === undefined || b.price_per_hour === "" ? 20 : Number(b.price_per_hour);
@@ -37,7 +42,7 @@ export const POST = handle(async (req) => {
       || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
     return fail("latitude must be -90..90 and longitude -180..180 (click the map or type them)");
   }
-  if (!Number.isFinite(price) || price < 0) return fail("price per hour must be a positive number");
+  if (!Number.isFinite(price) || price < 0 || price > 10000) return fail("price per hour must be between 0 and 10000");
   if (cars < 0 || bikes < 0 || cars > 99 || bikes > 99) return fail("slots per floor must be between 0 and 99 for each type");
 
   // 2. Save the location and its slots together (all or nothing)
@@ -60,4 +65,4 @@ export const POST = handle(async (req) => {
        ORDER BY f.ord, t.vt, n`, [loc.id, FLOOR_ORDER, bikes, cars]);
     return ok({ id: loc.id, slots_created: (cars + bikes) * FLOOR_ORDER.length, message: "Location added." });
   });
-});
+}));

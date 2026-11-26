@@ -6,6 +6,7 @@
 // DELETE {id} -> delete, or deactivate if it already has bookings (keeps history and reports correct)
 import { query, queryOne, transaction } from "@/lib/db";
 import { ok, fail, needAdmin, readBody, handle } from "@/lib/server";
+import { audited } from "@/lib/security";
 import { FLOORS, VEHICLE_TYPES, FLOOR_SORT_SQL, validFloor, validType, slotLabel } from "@/lib/floors";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ async function nextNo(db, loc, floor, type) {
   return r.rows[0].m + 1;
 }
 
-export const POST = handle(async (req) => {
+export const POST = handle(audited("slot_add", async (req) => {
   const [, err] = await needAdmin();
   if (err) return err;
   const b = await readBody(req);
@@ -82,9 +83,9 @@ export const POST = handle(async (req) => {
     if (e.code === "23503") return fail("location not found", 404);
     throw e;
   }
-});
+}));
 
-export const PUT = handle(async (req) => {
+export const PUT = handle(audited("slot_edit", async (req) => {
   const [, err] = await needAdmin();
   if (err) return err;
   const b = await readBody(req);
@@ -100,9 +101,9 @@ export const PUT = handle(async (req) => {
     if (duplicate(e)) return fail(DUP_MSG, 409);
     throw e;
   }
-});
+}));
 
-export const DELETE = handle(async (req) => {
+export const DELETE = handle(audited("slot_delete", async (req) => {
   const [, err] = await needAdmin();
   if (err) return err;
   const id = parseInt((await readBody(req)).id) || 0;
@@ -114,4 +115,4 @@ export const DELETE = handle(async (req) => {
   const rows = await query("DELETE FROM slots WHERE id = $1 RETURNING slot_label", [id]);
   if (!rows.length) return fail("slot not found", 404);
   return ok({ message: `Slot ${rows[0].slot_label} deleted.` });
-});
+}));

@@ -17,7 +17,7 @@ Built with **Next.js 14 (App Router)** and **PostgreSQL**.
 ## Deploy on Vercel
 1. Import this GitHub repo into Vercel. The framework is detected as Next.js.
 2. Connect a Postgres database and make sure `DATABASE_URL` (or `POSTGRES_URL`) is set.
-3. Add `SESSION_SECRET` with a long random string.
+3. Add `SESSION_SECRET` with a long random string (at least 32 characters, e.g. `openssl rand -base64 48`). The app refuses to log anyone in without it. Changing it logs everyone out and makes all QR passes invalid.
 4. Deploy.
 
 ### Database setup and upgrades (automatic)
@@ -29,6 +29,7 @@ On the first request, the app checks `app_meta.schema_version`. If the database 
    - copies the same layout to LG, F1, F2 and F3.
 3. Adds the base demo data (`sql/seed.sql`), but only when there are no users yet.
 4. Adds the v3 demo customers and bookings once (`sql/seed_demo_v3.sql`).
+5. Adds the performance indexes (`sql/perf_indexes.sql`) and the security tables and columns (`sql/security_v1.sql`).
 
 The migration is idempotent and safe to run more than once.
 
@@ -47,9 +48,21 @@ A new database gets one admin account (`admin@parking.com`), 15 customer account
 ```bash
 npm install
 export DATABASE_URL=postgres://postgres:postgres@localhost:5432/smart_parking
-export SESSION_SECRET=dev-secret
+export SESSION_SECRET="$(openssl rand -base64 48)"
 npm run dev
 ```
+
+## Security
+- **Logins:** 5 wrong passwords for one email (or 50 from one IP) in 15 minutes returns 429 for a while. The same message and roughly the same response time whether the email exists or not; registering an existing email answers the same as a new one.
+- **Passwords:** at least 8 characters with a letter and a number (bcrypt).
+- **Sessions:** HMAC-signed HttpOnly, SameSite=Lax, Secure cookie, valid 24 hours. Every API re-checks the user in the database, so logout (which bumps `users.token_version`) kills the session everywhere and role changes apply at once.
+- **CSRF:** APIs only accept JSON, and the middleware blocks write requests whose `Origin` is another site.
+- **QR passes** are `SP1.<booking>.<expiry>.<HMAC>`: they can't be guessed, edited or pointed at another booking, and they expire a day after the booking ends. Entry works once.
+- **Exit OTP:** 5 wrong tries cancel it.
+- **Input validation** with zod (names, emails, phone, vehicle numbers, location names and addresses: no HTML). The price is always calculated on the server; bookings are limited to 24 hours and 30 days ahead.
+- **Headers:** Content-Security-Policy, HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy (set in `next.config.mjs`).
+- **Privacy:** the report preview masks emails and phone numbers; full details are only in the CSV/PDF downloads, which are logged. CSV cells starting with `=`, `+`, `-` or `@` are neutralised (no Excel formula injection).
+- **Activity log** (Admin → Activity log, table `audit_log`): logins, failed and blocked logins, admin changes, QR scans and report exports.
 
 ## Project structure
 - `middleware.js`: the login wall for pages and APIs.
@@ -57,7 +70,7 @@ npm run dev
 - `app/(app)/`: the signed-in pages (find parking, my bookings, and the admin dashboard, locations, slots, scan and reports).
 - `app/api/*`: JSON routes. `app/api/admin/report` serves `?format=json|csv|pdf`.
 - `components/`: the app shell, theme toggle, icons, map and booking UI, and the scanner.
-- `lib/`: the database pool, auto setup, session, floor helpers, and report builders (CSV and PDF).
+- `lib/`: the database pool, auto setup, session, security helpers (`security.js`: rate limits, audit log, input rules, signed QR passes), floor helpers, and report builders (CSV and PDF).
 - `sql/`: the schema, the v2 migration, the seed and the reset scripts.
 - `public/assets/`: fonts and images.
 

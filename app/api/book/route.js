@@ -4,18 +4,27 @@ import crypto from "crypto";
 import { transaction } from "@/lib/db";
 import { ok, fail, needCustomer, readBody, parseTime, handle } from "@/lib/server";
 import { floorName } from "@/lib/floors";
+import { VEHICLE, check, rateLimit } from "@/lib/security";
 
 export const POST = handle(async (req) => {
   const [user, err] = await needCustomer();
   if (err) return err;
   const b = await readBody(req);
   const slotId = parseInt(b.slot_id);
-  const vehicle = String(b.vehicle_number || "").trim().toUpperCase();
   const start = parseTime(b.start_time);
   const end = parseTime(b.end_time);
-  if (!slotId || !vehicle) return fail("slot and vehicle number are required");
+  if (!slotId || !String(b.vehicle_number || "").trim()) return fail("slot and vehicle number are required");
+  const [vehicle, bad] = check(VEHICLE, String(b.vehicle_number));
+  if (bad) return bad;
   if (!start || !end) return fail("bad time format, use YYYY-MM-DD HH:MM");
   if (end <= start) return fail("end time must be after start time");
+  // The amount is always worked out here on the server from the slot's price; anything the browser
+  // sends about price is ignored. Bookings are limited to 24 hours, at most 30 days ahead.
+  const ms = new Date(end.replace(" ", "T")) - new Date(start.replace(" ", "T"));
+  if (ms > 24 * 3600000) return fail("a booking can be at most 24 hours long");
+  if (new Date(start.replace(" ", "T")) - Date.now() > 30 * 24 * 3600000) return fail("you can book at most 30 days ahead");
+  const limited = await rateLimit(`book:user:${user.id}`, 30, 3600);
+  if (limited) return limited;
 
   return transaction(async (db) => {
     const past = await db.query("SELECT $1::timestamptz < NOW() AS past", [end]);

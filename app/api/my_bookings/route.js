@@ -1,7 +1,9 @@
-// GET /api/my_bookings  -> your bookings, newest first. The QR token is only sent once the booking is paid.
+// GET /api/my_bookings  -> your bookings, newest first. The QR pass is only sent once the booking is paid,
+// and it is a signed, expiring pass (SP1.<id>.<expiry>.<signature>), never the raw secret token.
 import { query } from "@/lib/db";
 import { ok, needCustomer, handle } from "@/lib/server";
 import { floorName, typeName } from "@/lib/floors";
+import { signQr } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 export const GET = handle(async () => {
@@ -16,5 +18,5 @@ export const GET = handle(async () => {
     WHERE b.user_id = $1 ORDER BY b.start_time DESC`, [user.id]);
   // start_ts / end_ts are epoch seconds, so the countdown is right whatever timezone the browser is in
   return ok(rows.map((r) => ({ ...r, floor_name: floorName(r.floor), type_name: typeName(r.vehicle_type),
-    qr_token: r.payment_status === "paid" ? r.qr_token : null })));
+    qr_token: r.payment_status === "paid" && ["booked", "entered"].includes(r.status) ? signQr(r.id, r.end_ts, r.qr_token) : null })));
 });

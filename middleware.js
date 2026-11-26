@@ -16,18 +16,40 @@ const SESSIONS_VALID_AFTER = Date.parse("2026-11-26T15:30:00Z") / 1000;
 const b64urlToBytes = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), (c) => c.charCodeAt(0));
 const bytesToB64url = (b) => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
+// Compare without stopping at the first different character (no timing hints about the signature)
+function timingSafeEqualStr(a, b) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+
+// CSRF defence: a request that changes something (POST/PUT/PATCH/DELETE) must come from this site.
+// Browsers always send Origin (or at least Sec-Fetch-Site) on these requests, and a page on another
+// site can't fake them. Tools like curl send neither; they also don't carry a victim's cookies.
+function sameOrigin(req) {
+  const origin = req.headers.get("origin");
+  if (origin) {
+    try { return new URL(origin).host === req.headers.get("host"); } catch { return false; }
+  }
+  const site = req.headers.get("sec-fetch-site");
+  return !site || site === "same-origin" || site === "none";
+}
+
 // Same check as lib/session.js, written with Web Crypto because middleware runs on the Edge runtime
 async function readSession(req) {
   const value = req.cookies.get(COOKIE)?.value;
   if (!value || !value.includes(".")) return null;
   const [data, sig] = value.split(".");
   try {
-    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(process.env.SESSION_SECRET || "change-this-secret"),
+    const secret = process.env.SESSION_SECRET || (process.env.NODE_ENV === "production" ? "" : "local-development-only-secret");
+    if (!secret || value.length > 2000) return null; // no secret configured = nobody is logged in (fail closed)
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret),
       { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
     const expected = bytesToB64url(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data)));
-    if (expected !== sig) return null;
+    if (!sig || !timingSafeEqualStr(expected, sig)) return null;
     const user = JSON.parse(new TextDecoder().decode(b64urlToBytes(data)));
-    if (user.exp && user.exp < Date.now() / 1000) return null;
+    if (!user.exp || user.exp < Date.now() / 1000) return null;
     if (!user.iat || user.iat < SESSIONS_VALID_AFTER) return null;
     return user;
   } catch { return null; }
@@ -37,6 +59,9 @@ export async function middleware(req) {
   const { pathname } = req.nextUrl;
   const user = await readSession(req);
   const isApi = pathname.startsWith("/api/");
+  if (isApi && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !sameOrigin(req)) {
+    return NextResponse.json({ ok: false, error: "cross-site request blocked" }, { status: 403 });
+  }
 
   if (!user) {
     if (PUBLIC_PAGES.includes(pathname) || PUBLIC_APIS.includes(pathname)) return NextResponse.next();

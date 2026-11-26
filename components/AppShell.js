@@ -89,6 +89,7 @@ export default function AppShell({ children }) {
               <NavItem href="/admin/slots" icon="grid" text="Slots" path={path} />
               <NavItem href="/admin/scan" icon="scan" text="Scan pass" path={path} />
               <NavItem href="/admin/reports" icon="report" text="Reports" path={path} />
+              <NavItem href="/admin/activity" icon="clock" text="Activity log" path={path} />
             </nav>
           )}
           <div className="sidebar-foot">

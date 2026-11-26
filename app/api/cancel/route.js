@@ -10,6 +10,8 @@ export const POST = handle(async (req) => {
   if (!b) return fail("booking not found", 404);
   if (b.payment_status === "paid") return fail("paid bookings cannot be cancelled");
   if (b.status !== "booked") return fail("booking is already " + b.status);
-  await query("UPDATE bookings SET status = 'cancelled' WHERE id = $1", [id]);
+  // Same conditions inside the UPDATE, so a payment at the same moment can't slip through
+  const done = await query("UPDATE bookings SET status = 'cancelled' WHERE id = $1 AND status = 'booked' AND payment_status = 'pending' RETURNING id", [id]);
+  if (!done[0]) return fail("booking can no longer be cancelled");
   return ok({ cancelled: true });
 });

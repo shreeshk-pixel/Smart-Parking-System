@@ -25,7 +25,7 @@ export default function RegisterPage() {
         <label className="field"><span>Full name</span><input value={form.name} onChange={set('name')} placeholder="Rahul Patil" required autoFocus /></label>
         <label className="field"><span>Email</span><input type="email" value={form.email} onChange={set('email')} placeholder="you@example.com" required /></label>
         <label className="field"><span>Phone <small>(optional)</small></span><input value={form.phone} onChange={set('phone')} placeholder="98xxxxxxxx" /></label>
-        <label className="field"><span>Password</span><input type="password" value={form.password} onChange={set('password')} placeholder="At least 6 characters" required minLength={6} /></label>
+        <label className="field"><span>Password</span><input type="password" value={form.password} onChange={set('password')} placeholder="8+ characters, letters and numbers" required minLength={8} maxLength={72} autoComplete="new-password" /></label>
         <button className="btn cta" type="submit">Create account</button>
       </form>
       <p className="muted">Already registered? <Link href="/login"><b>Log in</b></Link></p>
