@@ -20,13 +20,14 @@ function NavItem({ href, icon, text, path }) {
   );
 }
 
-function Brand() {
-  return <Link className="brand" href="/"><span className="brand-mark">P</span><span>Smart<b>Park</b></span></Link>;
+function Brand({ home }) {
+  return <Link className="brand" href={home}><span className="brand-mark">P</span><span>Smart<b>Park</b></span></Link>;
 }
 
 export default function AppShell({ user, children }) {
   const path = usePathname() || '/';
   const isAdmin = user?.role === 'admin';
+  const home = isAdmin ? '/admin' : '/';
   // Close the phone drawer after navigating
   useEffect(() => { const t = document.getElementById('navToggle'); if (t) t.checked = false; }, [path]);
   async function logout() { try { await api('/api/logout', {}); } catch {} window.location.href = '/login'; }
@@ -37,14 +38,17 @@ export default function AppShell({ user, children }) {
       <div className="shell">
         <aside className="sidebar" aria-label="Main navigation">
           <div className="sidebar-head">
-            <Brand />
+            <Brand home={home} />
             <label htmlFor="navToggle" className="icon-btn only-mobile" aria-label="Close menu"><Ico name="close" /></label>
           </div>
-          <nav className="nav-group">
-            <span className="nav-label">Parking</span>
-            <NavItem href="/" icon="map" text="Find parking" path={path} />
-            <NavItem href="/my-bookings" icon="ticket" text="My bookings" path={path} />
-          </nav>
+          {/* Admins only manage the system (they don't book); normal users never see the admin pages */}
+          {!isAdmin && (
+            <nav className="nav-group">
+              <span className="nav-label">Parking</span>
+              <NavItem href="/" icon="map" text="Find parking" path={path} />
+              <NavItem href="/my-bookings" icon="ticket" text="My bookings" path={path} />
+            </nav>
+          )}
           {isAdmin && (
             <nav className="nav-group">
               <span className="nav-label">Admin</span>
@@ -68,7 +72,7 @@ export default function AppShell({ user, children }) {
         <div className="main">
           <header className="topbar">
             <label htmlFor="navToggle" className="icon-btn" aria-label="Open menu"><Ico name="menu" /></label>
-            <Brand />
+            <Brand home={home} />
             <ThemeToggle />
           </header>
           <main className={'content' + (path === '/' ? ' wide' : '')}>{children}</main>
@@ -77,8 +81,8 @@ export default function AppShell({ user, children }) {
         {/* Phone bottom tab bar (hidden on desktop, where the sidebar is always visible) */}
         <nav className="tabbar" aria-label="Quick navigation">
           {isAdmin ? <>
-            <NavItem href="/" icon="map" text="Map" path={path} />
             <NavItem href="/admin" icon="dash" text="Dashboard" path={path} />
+            <NavItem href="/admin/slots" icon="grid" text="Slots" path={path} />
             <NavItem href="/admin/scan" icon="scan" text="Scan" path={path} />
             <NavItem href="/admin/reports" icon="report" text="Reports" path={path} />
           </> : <>

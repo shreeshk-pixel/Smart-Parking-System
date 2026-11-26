@@ -1,5 +1,5 @@
 -- Demo data (v2). The app runs this only when the users table is empty.
--- Logins: admin@parking.com / admin123, rahul@example.com, sneha@example.com and arjun@example.com / user123
+-- seed_demo_v3.sql runs right after it and sets the real passwords (documented privately, not in this repo).
 INSERT INTO users (name,email,phone,password_hash,role) VALUES
 ('Admin','admin@parking.com','9000000000','$2a$10$PQS.zOY51K8yV.oJMz4VauV7xDFpgKMYCaqvHqnwZfGlt3LiZ9JsW','admin'),
 ('Rahul Patil','rahul@example.com','9000000001','$2a$10$Qyo7uLH8p02DMy91ATBK6OtcOFXhF9Dnnrxv8cN2q7jL6DW.xC2uC','user'),

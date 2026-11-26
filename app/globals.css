@@ -211,24 +211,33 @@ input[type=date], input[type=datetime-local] { min-width: 0; }
 .bar.mid > span { background: var(--yellow); } .bar.high > span { background: var(--red); }
 
 /* ---------- auth (login / register) ---------- */
-.auth-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr); }
-.auth-hero { position: relative; overflow: hidden; background: var(--black); color: #fff; padding: var(--s-5) var(--s-5) 0; display: flex; flex-direction: column; gap: var(--s-4); min-height: 300px; }
+.auth-shell { min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+.auth-hero { position: relative; overflow: hidden; background: var(--black); color: #fff; padding: var(--s-4) var(--s-5) 0; display: flex; flex-direction: column; gap: var(--s-2); }
 .auth-hero .brand { color: #fff; }
-.auth-hero h1 { font-size: clamp(28px, 6vw, 52px); font-weight: 500; max-width: 12ch; }
-.auth-hero p { color: rgba(255,255,255,.65); max-width: 36ch; }
-.auth-art { position: relative; margin: auto auto 0; width: min(78%, 360px); aspect-ratio: 1; display: grid; place-items: center; }
+.auth-hero h1 { font-size: clamp(26px, 6vw, 52px); font-weight: 500; max-width: 14ch; }
+.auth-hero p { color: rgba(255,255,255,.65); max-width: 36ch; display: none; }
+/* the car art is sized by height so the hero never pushes the page taller than the screen */
+.auth-art { position: relative; margin: auto auto 0; height: min(22vh, 180px); aspect-ratio: 1; display: grid; place-items: center; flex-shrink: 0; }
 .auth-art::before { content: ""; position: absolute; inset: 14% 4% -30%; border-radius: 50%; background: var(--yellow); }
 .auth-art img { position: relative; width: 46%; transform: rotate(-12deg); filter: drop-shadow(0 18px 24px rgba(0,0,0,.35)); }
-.auth-panel { display: flex; align-items: center; justify-content: center; padding: var(--s-6) var(--s-5) var(--s-7); background: var(--bg); }
+.auth-panel { display: flex; align-items: flex-start; justify-content: center; padding: var(--s-5) var(--s-5) var(--s-5); background: var(--bg); }
 .auth-card { width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--s-4); }
 .auth-card h2 { font-size: 30px; font-weight: 500; } .auth-card h2 b { font-weight: 800; }
 .auth-card .sub { color: var(--muted); }
 .auth-top { display: flex; justify-content: flex-end; }
-.demo-box { background: var(--surface); border: 1px dashed var(--border); border-radius: 16px; padding: var(--s-3) var(--s-4); font-size: 13px; color: var(--muted); }
+@media (max-width: 999px) {
+  .auth-top { position: absolute; top: var(--s-4); right: var(--s-4); }
+  .auth-top .icon-btn, .auth-top button { color: #fff; }
+  .auth-card h2 { font-size: 26px; }
+  .auth-card { gap: var(--s-3); }
+}
 @media (min-width: 1000px) {
-  .auth-shell { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
-  .auth-hero { padding: var(--s-7); min-height: 100vh; }
-  .auth-art { width: min(80%, 520px); }
+  /* desktop: exactly one screen tall, no page scroll; the form side scrolls on its own only if the window is tiny */
+  .auth-shell { height: 100vh; height: 100dvh; overflow: hidden; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+  .auth-hero { padding: var(--s-7); gap: var(--s-4); min-height: 0; }
+  .auth-hero p { display: block; }
+  .auth-art { height: min(56vh, 520px); flex-shrink: 1; min-height: 120px; max-width: 86%; }
+  .auth-panel { align-items: center; overflow-y: auto; padding: var(--s-6) var(--s-5); }
 }
 
 /* ---------- find parking: big map + booking panel ---------- */
@@ -417,3 +426,20 @@ details.disclosure[open] summary::after { content: "–"; }
 
 /* start / end pickers stack on narrow phones so the full date-time stays readable */
 @media (max-width: 480px) { .form-grid.times { grid-template-columns: 1fr; } }
+
+/* ---------- scrollbars ----------
+   No default grey browser scrollbar anywhere: the page itself scrolls with a hidden scrollbar,
+   and inner scroll areas (panels, tables, modals) get a thin themed one. Scrolling still works
+   with the wheel, touch, keyboard and trackpad. */
+html, body { scrollbar-width: none; -ms-overflow-style: none; }
+html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }
+* { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+*::-webkit-scrollbar-corner { background: transparent; }
+:root, [data-theme="light"] { --scroll-thumb: rgba(19, 15, 38, .18); --scroll-thumb-hover: rgba(19, 15, 38, .35); }
+[data-theme="dark"] { --scroll-thumb: rgba(255, 255, 255, .16); --scroll-thumb-hover: rgba(255, 255, 255, .32); }
+.sidebar { scrollbar-color: rgba(255, 255, 255, .14) transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .14); }

@@ -34,7 +34,6 @@ function LoginForm() {
         <button className="btn cta" type="submit" disabled={busy}>{busy ? 'Logging in…' : 'Log in'}</button>
       </form>
       <p className="muted">New here? <Link href="/register"><b>Create an account</b></Link></p>
-      <div className="demo-box">Demo: admin@parking.com / admin123 · rahul@example.com / user123</div>
     </div>
   );
 }

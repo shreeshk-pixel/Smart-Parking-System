@@ -1,10 +1,10 @@
 // POST /api/pay  {booking_id}  -> mock payment: marks your booking paid and unlocks its QR pass
 import crypto from "crypto";
 import { query, queryOne } from "@/lib/db";
-import { ok, fail, needUser, readBody, handle } from "@/lib/server";
+import { ok, fail, needCustomer, readBody, handle } from "@/lib/server";
 
 export const POST = handle(async (req) => {
-  const [user, err] = await needUser();
+  const [user, err] = await needCustomer();
   if (err) return err;
   const id = parseInt((await readBody(req)).booking_id) || 0;
   const b = await queryOne("SELECT * FROM bookings WHERE id = $1 AND user_id = $2", [id, user.id]);

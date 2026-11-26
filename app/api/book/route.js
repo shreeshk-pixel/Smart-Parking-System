@@ -2,11 +2,11 @@
 // Stops double booking: locks the slot row, then checks for overlapping bookings.
 import crypto from "crypto";
 import { transaction } from "@/lib/db";
-import { ok, fail, needUser, readBody, parseTime, handle } from "@/lib/server";
+import { ok, fail, needCustomer, readBody, parseTime, handle } from "@/lib/server";
 import { floorName } from "@/lib/floors";
 
 export const POST = handle(async (req) => {
-  const [user, err] = await needUser();
+  const [user, err] = await needCustomer();
   if (err) return err;
   const b = await readBody(req);
   const slotId = parseInt(b.slot_id);

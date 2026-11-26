@@ -1,11 +1,11 @@
 // GET /api/my_bookings  -> your bookings, newest first. The QR token is only sent once the booking is paid.
 import { query } from "@/lib/db";
-import { ok, needUser, handle } from "@/lib/server";
+import { ok, needCustomer, handle } from "@/lib/server";
 import { floorName, typeName } from "@/lib/floors";
 
 export const dynamic = "force-dynamic";
 export const GET = handle(async () => {
-  const [user, err] = await needUser();
+  const [user, err] = await needCustomer();
   if (err) return err;
   const rows = await query(`
     SELECT b.id, b.vehicle_number, b.start_time, b.end_time, b.amount, b.status, b.payment_status, b.payment_ref,
