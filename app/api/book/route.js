@@ -3,6 +3,7 @@
 import crypto from "crypto";
 import { transaction } from "@/lib/db";
 import { ok, fail, needUser, readBody, parseTime, handle } from "@/lib/server";
+import { floorName } from "@/lib/floors";
 
 export const POST = handle(async (req) => {
   const [user, err] = await needUser();
@@ -22,7 +23,7 @@ export const POST = handle(async (req) => {
 
     // Lock this slot so two people can't book it at the same moment
     const slot = (await db.query(
-      `SELECT s.id, l.price_per_hour FROM slots s JOIN parking_locations l ON l.id = s.location_id
+      `SELECT s.id, s.slot_label, s.floor, s.vehicle_type, l.price_per_hour FROM slots s JOIN parking_locations l ON l.id = s.location_id
        WHERE s.id = $1 AND s.is_active = TRUE FOR UPDATE OF s`, [slotId])).rows[0];
     if (!slot) return fail("slot not found", 404);
 
@@ -38,6 +39,7 @@ export const POST = handle(async (req) => {
       `INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, amount, status, payment_status, qr_token)
        VALUES ($1, $2, $3, $4, $5, $6, 'booked', 'pending', $7) RETURNING id`,
       [user.id, slotId, vehicle, start, end, amount, crypto.randomBytes(16).toString("hex")])).rows[0];
-    return ok({ booking_id: row.id, amount });
+    return ok({ booking_id: row.id, amount, slot_label: slot.slot_label, floor: slot.floor,
+                floor_name: floorName(slot.floor), vehicle_type: slot.vehicle_type });
   });
 });

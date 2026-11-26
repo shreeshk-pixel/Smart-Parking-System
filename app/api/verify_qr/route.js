@@ -5,20 +5,21 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { query, queryOne } from "@/lib/db";
 import { ok, fail, needAdmin, readBody, handle } from "@/lib/server";
+import { floorName } from "@/lib/floors";
 
 export const POST = handle(async (req) => {
   const [, err] = await needAdmin();
   if (err) return err;
   const token = String((await readBody(req)).qr_token || "").trim();
   const b = await queryOne(`
-    SELECT b.*, s.slot_number, u.name AS user_name,
+    SELECT b.*, s.slot_label, s.floor, u.name AS user_name,
            NOW() < b.start_time - interval '15 minutes' AS too_early,
            NOW() > b.end_time AS expired,
            GREATEST(0, CEIL(EXTRACT(EPOCH FROM (NOW() - b.end_time)) / 60))::int AS overstay
     FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN users u ON u.id = b.user_id
     WHERE b.qr_token = $1`, [token]);
   if (!b) return fail("invalid QR code", 404);
-  const info = { booking_id: b.id, user_name: b.user_name, vehicle_number: b.vehicle_number, slot_number: b.slot_number };
+  const info = { booking_id: b.id, user_name: b.user_name, vehicle_number: b.vehicle_number, slot_label: b.slot_label, floor: b.floor, floor_name: floorName(b.floor) };
 
   if (b.status === "booked") {
     if (b.payment_status !== "paid") return fail("booking is not paid");

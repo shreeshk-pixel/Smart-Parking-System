@@ -1,3 +1,11 @@
 node_modules
 .next
 .env*
+
+# private notes (never publish)
+docs/
+decisions*
+**/decisions*
+flow.md
+**/flow.md
+*.jar

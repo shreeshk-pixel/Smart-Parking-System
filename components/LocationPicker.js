@@ -21,9 +21,9 @@ export default function LocationPicker({ lat, lng, onPick }) {
   useEffect(() => {
     const a = Number(lat), b = Number(lng);
     if (lat === '' || lng === '' || !isFinite(a) || !isFinite(b)) return;
-    if (!marker.current) marker.current = L.circleMarker([a, b], { radius: 10, color: 'blue' }).addTo(map.current);
+    if (!marker.current) marker.current = L.marker([a, b], { icon: L.divIcon({ className: '', iconSize: [46, 56], iconAnchor: [23, 56], html: '<div class="pin active"><span class="head">P</span><span class="tail"></span></div>' }) }).addTo(map.current);
     else marker.current.setLatLng([a, b]);
   }, [lat, lng]);
 
-  return <div ref={div} style={{ height: 320, borderRadius: 8, marginBottom: 12 }} />;
+  return <div ref={div} className="picker-map" style={{ height: 320, borderRadius: 18, overflow: 'hidden' }} />;
 }
