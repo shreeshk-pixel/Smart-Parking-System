@@ -162,6 +162,7 @@ input[type=date], input[type=datetime-local] { min-width: 0; }
 .btn.secondary { background: var(--surface-2); color: var(--text); border: 1.5px solid var(--border); }
 .btn.secondary:hover { background: var(--surface-3); }
 .btn.green { background: var(--green); color: #fff; }
+.btn.green:disabled { background: var(--surface-3); color: var(--muted); }
 .btn.ghost-danger { background: transparent; color: var(--red); border: 1.5px solid color-mix(in srgb, var(--red) 40%, transparent); }
 .btn.sm { min-height: 38px; padding: 0 var(--s-4); font-size: 13px; border-radius: 12px; }
 .btn.block { width: 100%; }
