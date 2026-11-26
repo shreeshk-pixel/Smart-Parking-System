@@ -5,6 +5,7 @@ import { transaction } from "@/lib/db";
 import { ok, fail, needCustomer, readBody, parseTime, handle } from "@/lib/server";
 import { floorName } from "@/lib/floors";
 import { VEHICLE, check, rateLimit } from "@/lib/security";
+import { newExitCode, sealExitCode } from "@/lib/exitCode";
 
 export const POST = handle(async (req) => {
   const [user, err] = await needCustomer();
@@ -45,9 +46,10 @@ export const POST = handle(async (req) => {
     const hours = Math.max(1, Math.ceil((new Date(end.replace(" ", "T")) - new Date(start.replace(" ", "T"))) / 3600000));
     const amount = hours * Number(slot.price_per_hour);
     const row = (await db.query(
-      `INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, amount, status, payment_status, qr_token)
-       VALUES ($1, $2, $3, $4, $5, $6, 'booked', 'pending', $7) RETURNING id`,
-      [user.id, slotId, vehicle, start, end, amount, crypto.randomBytes(16).toString("hex")])).rows[0];
+      `INSERT INTO bookings (user_id, slot_id, vehicle_number, start_time, end_time, amount, status, payment_status, qr_token, exit_code_enc)
+       VALUES ($1, $2, $3, $4, $5, $6, 'booked', 'pending', $7, $8) RETURNING id`,
+      // qr_token: secret behind the signed QR pass. exit_code_enc: the customer's 6-digit exit code, encrypted.
+      [user.id, slotId, vehicle, start, end, amount, crypto.randomBytes(16).toString("hex"), sealExitCode(newExitCode())])).rows[0];
     return ok({ booking_id: row.id, amount, slot_label: slot.slot_label, floor: slot.floor,
                 floor_name: floorName(slot.floor), vehicle_type: slot.vehicle_type });
   });

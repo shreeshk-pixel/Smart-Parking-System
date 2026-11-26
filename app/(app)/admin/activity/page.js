@@ -6,10 +6,10 @@ import { apiCached } from '../../../../lib/api';
 const LABELS = {
   login: 'Logged in', login_failed: 'Failed login', login_blocked: 'Login blocked (too many tries)', logout: 'Logged out',
   register: 'Registered', slot_add: 'Added slot(s)', slot_edit: 'Edited slot', slot_delete: 'Deleted slot',
-  location_add: 'Added location', qr_entry: 'QR entry', qr_exit_otp: 'Exit OTP issued', qr_rejected: 'Rejected QR',
-  exit_otp_wrong: 'Wrong exit OTP', exit_completed: 'Exit completed', report_export: 'Exported report',
+  location_add: 'Added location', qr_entry: 'QR entry', qr_exit_scan: 'Exit scan', qr_exit_otp: 'Exit OTP issued (old)', qr_rejected: 'Rejected QR',
+  exit_code_wrong: 'Wrong exit code', exit_locked: 'Exit locked (5 wrong codes)', exit_otp_wrong: 'Wrong exit OTP (old)', exit_completed: 'Exit completed', report_export: 'Exported report',
 };
-const BAD = new Set(['login_failed', 'login_blocked', 'qr_rejected', 'exit_otp_wrong']);
+const BAD = new Set(['login_failed', 'login_blocked', 'qr_rejected', 'exit_otp_wrong', 'exit_code_wrong', 'exit_locked']);
 
 export default function Activity() {
   const [rows, setRows] = useState(null);

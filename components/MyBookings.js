@@ -14,6 +14,14 @@ const day = s => (s ? new Date(String(s).replace(' ', 'T')).toLocaleDateString([
 const pad = n => String(n).padStart(2, '0');
 const fmtDur = sec => { sec = Math.max(0, Math.floor(sec)); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
   return h ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`; };
+// The booking's secret exit code: only the customer sees it. Tell it to the gate staff when leaving.
+const ExitCode = ({ code }) => (
+  <div className="exit-code" aria-label="Exit code">
+    <small>Exit code · tell the gate staff when you leave</small>
+    <b className="mono">{code.slice(0, 3)} {code.slice(3)}</b>
+    <small className="muted">Keep it private. It is not shown to anyone else.</small>
+  </div>
+);
 const TypeIcon = ({ t }) => <svg><use href={`#i-${t === 'B' ? 'bike' : 'car'}`} /></svg>;
 
 // Which booking gets the big countdown: inside the gate > running now > next upcoming
@@ -153,6 +161,7 @@ function Content() {
                     {paid ? <>
                       {b.qr_token && <Qr text={b.qr_token} />}
                       <p className="qr-note">Show this pass at the gate for entry and exit</p>
+                      {b.exit_code && <ExitCode code={b.exit_code} />}
                       <button className="btn secondary block" type="button" onClick={() => setTicket(b)}>Ticket details</button>
                     </> : <>
                       <div className="total-row"><div><small>Total</small><b>Rs {b.amount}</b></div></div>
@@ -216,6 +225,7 @@ function Content() {
             <div className="card loc-card"><span className={'p-logo' + (ticket.payment_status === 'paid' ? ' ok' : '')}>P</span>
               <div className="meta"><b style={{ fontSize: 17 }}>{ticket.vehicle_number}</b><span className="muted">{ticket.location_name}</span>
                 <span className="muted">Slot <b style={{ color: 'var(--text)' }}>{ticket.slot_label}</b> · {ticket.floor_name} · {ticket.type_name}</span></div></div>
+            {ticket.exit_code && <ExitCode code={ticket.exit_code} />}
             <div><h3 style={{ marginBottom: 8 }}>Log activities</h3><div className="log">
               {[['Booked', ticket.created_at], ['Paid' + (ticket.payment_ref ? ' · ' + ticket.payment_ref : ''), ticket.payment_status === 'paid' ? (ticket.paid_at || true) : null],
                 ['Entered the gate', ticket.entry_time], ['Exited', ticket.exit_time]].map(([label, when]) => (

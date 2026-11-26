@@ -1,5 +1,6 @@
 'use client';
-// Gate scanner: first scan of a paid pass = entry, second scan = exit (returns an OTP), then the OTP confirms the exit.
+// Gate scanner: first scan of a paid pass = entry. Second scan = exit: the admin asks the customer for the
+// 6-digit exit code shown on their ticket, types it here, and a match completes the booking.
 import { useEffect, useRef, useState } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { api } from '../lib/api';
@@ -7,8 +8,8 @@ import { api } from '../lib/api';
 export default function Scanner() {
   const [token, setToken] = useState('');
   const [result, setResult] = useState(null);   // {text, ok}
-  const [exit, setExit] = useState(null);       // {booking_id, otp} when an exit OTP is issued
-  const [otp, setOtp] = useState('');
+  const [exit, setExit] = useState(null);       // {booking_id, locked_minutes} when an exit is requested
+  const [code, setCode] = useState('');
   const last = useRef({ t: '', at: 0 });
 
   async function verify(t) {
@@ -21,15 +22,15 @@ export default function Scanner() {
       else {
         const late = r.overstay_minutes > 0;
         setResult({ text: `Exit requested: ${who}${late ? ` (overstayed by ${r.overstay_minutes} min)` : ''}`, ok: !late });
-        setExit({ booking_id: r.booking_id, otp: r.otp });
+        setExit({ booking_id: r.booking_id, locked_minutes: r.locked_minutes }); setCode('');
       }
     } catch (e) { setResult({ text: e.message, ok: false }); }
   }
 
   async function confirmExit() {
     try {
-      await api('/api/exit_otp', { booking_id: exit.booking_id, otp: otp.trim() });
-      setResult({ text: 'Exit complete. Booking closed.', ok: true }); setExit(null); setOtp('');
+      await api('/api/exit_code', { booking_id: exit.booking_id, code: code.trim() });
+      setResult({ text: 'Exit complete. Booking closed.', ok: true }); setExit(null); setCode('');
     } catch (e) { setResult({ text: e.message, ok: false }); }
   }
 
@@ -61,10 +62,13 @@ export default function Scanner() {
         {!result && <div className="empty-state"><img src="/assets/img/car-top-sm.png" alt="" /><span>Scan or paste a pass to see the booking here.</span></div>}
         {exit && (
           <div className="stack">
-            <h3>Exit OTP</h3>
-            <div className="zone-card"><div><div className="k">Demo OTP sent to the user</div><div className="zone mono">{exit.otp}</div></div><div className="thumb"><svg><use href="#i-pin" /></svg></div></div>
-            <label className="field"><span>Enter OTP</span><input className="otp-input" maxLength={6} inputMode="numeric" value={otp} onChange={e => setOtp(e.target.value)} /></label>
-            <button className="btn cta green" onClick={confirmExit}>Confirm exit</button>
+            <h3>Exit code</h3>
+            <div className="zone-card"><div><div className="k">Ask the customer</div><div style={{ fontWeight: 600 }}>Their 6-digit exit code is on their ticket in My bookings.</div></div></div>
+            {exit.locked_minutes > 0 && <p className="msg err">Too many wrong codes: exit locked for {exit.locked_minutes} more min.</p>}
+            <form className="stack" onSubmit={e => { e.preventDefault(); confirmExit(); }}>
+              <label className="field"><span>Customer's exit code</span><input id="exitCode" className="otp-input" maxLength={6} inputMode="numeric" autoComplete="off" placeholder="______" value={code} onChange={e => setCode(e.target.value.replace(/\D/g, ''))} /></label>
+              <button className="btn cta green" type="submit" disabled={code.length !== 6}>Confirm exit</button>
+            </form>
           </div>
         )}
       </section>

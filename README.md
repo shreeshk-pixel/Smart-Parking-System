@@ -1,6 +1,6 @@
 # Smart Parking System
 
-A web app to find, book and pay for parking slots in Belagavi. Each lot has five floors and separate bike and car bays. Gate entry and exit use a QR pass and an exit OTP.
+A web app to find, book and pay for parking slots in Belagavi. Each lot has five floors and separate bike and car bays. Gate entry and exit use a QR pass and a private 6-digit exit code that comes with every booking.
 Built with **Next.js 14 (App Router)** and **PostgreSQL**.
 
 ## Features
@@ -10,7 +10,7 @@ Built with **Next.js 14 (App Router)** and **PostgreSQL**.
 - **Find parking:** a map of lots, bike and car cards, floor tabs, a per-floor availability table, a visual bay picker, and booking for a time range (double booking is blocked).
 - **My bookings:** a live countdown ring, mock payment that unlocks the QR pass, ticket details and history.
 - **Admin dashboard:** occupancy by floor, recent bookings and revenue.
-- **Admin tools:** scan the QR for entry, generate an exit OTP, add, bulk-add, edit or deactivate slots, and add new lots on a map (each new lot gets slots on all five floors automatically).
+- **Admin tools:** scan the QR for entry, scan it again at exit and type the customer's exit code, add, bulk-add, edit or deactivate slots, and add new lots on a map (each new lot gets slots on all five floors automatically).
 - **Admin reports:** pick a date range and download a **PDF** or **CSV**. Reports cover the summary, occupancy by floor and type, revenue by location, bookings and users. The PDF is generated server-side with jsPDF and an embedded Noto Sans font, so `₹` renders correctly.
 - **Design:** yellow and black, with the Lexend font, a light/dark toggle, no default browser scrollbars (thin themed ones on inner panels), a desktop sidebar beside a full map, and a mobile bottom sheet with a tab bar.
 
@@ -58,7 +58,7 @@ npm run dev
 - **Sessions:** HMAC-signed HttpOnly, SameSite=Lax, Secure cookie, valid 24 hours. Every API re-checks the user in the database, so logout (which bumps `users.token_version`) kills the session everywhere and role changes apply at once.
 - **CSRF:** APIs only accept JSON, and the middleware blocks write requests whose `Origin` is another site.
 - **QR passes** are `SP1.<booking>.<expiry>.<HMAC>`: they can't be guessed, edited or pointed at another booking, and they expire a day after the booking ends. Entry works once.
-- **Exit OTP:** 5 wrong tries cancel it.
+- **Exit code:** every booking gets a random 6-digit exit code (Node `crypto.randomInt`) when it is created. It is stored encrypted (AES-256-GCM, key derived from `SESSION_SECRET`) in `bookings.exit_code_enc` and is shown only to the customer, on their paid ticket. Admin APIs, the scan page and reports never include it. At exit the admin scans the QR and types the code the customer reads out; it is compared in constant time. 5 wrong codes lock that booking's exit for 15 minutes (scanning the QR again does not reset the count), and every wrong try, lock and exit is in the activity log. Bookings made before this change get a code automatically on the next deploy.
 - **Input validation** with zod (names, emails, phone, vehicle numbers, location names and addresses: no HTML). The price is always calculated on the server; bookings are limited to 24 hours and 30 days ahead.
 - **Headers:** Content-Security-Policy, HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy (set in `next.config.mjs`).
 - **Privacy:** the report preview masks emails and phone numbers; full details are only in the CSV/PDF downloads, which are logged. CSV cells starting with `=`, `+`, `-` or `@` are neutralised (no Excel formula injection).

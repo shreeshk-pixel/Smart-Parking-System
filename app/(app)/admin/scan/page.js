@@ -7,7 +7,7 @@ export default function ScanPage() {
   return (
     <>
       <div className="page-head">
-        <div><span className="eyebrow">Gate</span><h1>Entry / exit <b>scan</b></h1><p>First scan of a paid pass = entry. Second scan = exit, which issues a one-time OTP.</p></div>
+        <div><span className="eyebrow">Gate</span><h1>Entry / exit <b>scan</b></h1><p>First scan of a paid pass = entry. Second scan = exit: type the 6-digit exit code from the customer's ticket.</p></div>
       </div>
       <Scanner />
     </>

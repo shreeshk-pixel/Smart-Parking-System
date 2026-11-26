@@ -2,13 +2,13 @@
 // The QR holds a signed pass SP1.<bookingId>.<expiry>.<signature>. It is accepted only if the signature
 // matches (HMAC over id + expiry + the booking's secret token) and it has not expired.
 // booked + paid -> entered (only 15 min before start until end time). A second entry scan is refused.
-// entered -> new 6-digit exit OTP (works even after end time, shows overstay)
-import bcrypt from "bcryptjs";
-import crypto from "crypto";
+// entered -> exit requested: the admin then asks the customer for their 6-digit exit code (POST /api/exit_code).
+//            The code itself is never sent to the admin. Works after the end time too (shows overstay).
 import { query, queryOne } from "@/lib/db";
 import { ok, fail, needAdmin, readBody, handle } from "@/lib/server";
 import { floorName } from "@/lib/floors";
 import { parseQr, qrValid, audit } from "@/lib/security";
+import { fillExitCodes, openExitCode } from "@/lib/exitCode";
 
 export const POST = handle(async (req) => {
   const [admin, err] = await needAdmin();
@@ -19,6 +19,7 @@ export const POST = handle(async (req) => {
     SELECT b.*, s.slot_label, s.floor, u.name AS user_name,
            NOW() < b.start_time - interval '15 minutes' AS too_early,
            NOW() > b.end_time AS expired,
+           CEIL(GREATEST(0, EXTRACT(EPOCH FROM (b.exit_locked_until - NOW()))) / 60)::int AS locked_minutes,
            GREATEST(0, CEIL(EXTRACT(EPOCH FROM (NOW() - b.end_time)) / 60))::int AS overstay
     FROM bookings b JOIN slots s ON s.id = b.slot_id JOIN users u ON u.id = b.user_id
     WHERE b.id = $1`, [pass.id]);
@@ -41,12 +42,11 @@ export const POST = handle(async (req) => {
   }
 
   if (b.status === "entered") {
-    const otp = String(crypto.randomInt(100000, 1000000));
-    await query("UPDATE bookings SET exit_otp_hash = $1, otp_expires_at = NOW() + interval '10 minutes', otp_attempts = 0 WHERE id = $2",
-      [await bcrypt.hash(otp, 10), b.id]);
-    await audit(req, admin, "qr_exit_otp", b.id);
-    // Demo only: the OTP is returned so it can be shown (in real life it would be sent by SMS)
-    return ok({ ...info, action: "exit", status: "entered", otp, overstay_minutes: b.overstay });
+    // A booking made before exit codes existed gets one now (the customer sees it on My bookings)
+    if (!openExitCode(b.exit_code_enc)) await fillExitCodes(query, b.user_id);
+    await audit(req, admin, "qr_exit_scan", b.id);
+    return ok({ ...info, action: "exit", status: "entered", needs_exit_code: true,
+                overstay_minutes: b.overstay, locked_minutes: b.locked_minutes || 0 });
   }
 
   return fail("booking is " + b.status);
