@@ -14,18 +14,20 @@ export const GET = handle(async (req) => {
   const [, err] = await needAdmin();
   if (err) return err;
   const p = new URL(req.url).searchParams;
-  const locations = await query("SELECT id, name FROM parking_locations ORDER BY name");
-  const loc = parseInt(p.get("loc")) || locations[0]?.id || 0;
+  const locationsP = query("SELECT id, name FROM parking_locations ORDER BY name");
+  let loc = parseInt(p.get("loc")) || 0;
+  const locations = loc ? null : await locationsP; // only wait first when we need the default lot
+  if (!loc) loc = locations[0]?.id || 0;
   const floor = String(p.get("floor") || "").toUpperCase();
   const type = String(p.get("type") || "").toUpperCase();
   const where = ["s.location_id = $1"], args = [loc];
   if (validFloor(floor)) { args.push(floor); where.push(`s.floor = $${args.length}`); }
   if (validType(type)) { args.push(type); where.push(`s.vehicle_type = $${args.length}`); }
-  const slots = await query(`SELECT s.*, l.name AS location_name FROM slots s JOIN parking_locations l ON l.id = s.location_id
-     WHERE ${where.join(" AND ")} ORDER BY ${FLOOR_SORT_SQL()}, s.vehicle_type, s.slot_no`, args);
-  const counts = await query(`SELECT floor, vehicle_type, COUNT(*)::int AS n, COUNT(*) FILTER (WHERE is_active)::int AS active
-     FROM slots WHERE location_id = $1 GROUP BY floor, vehicle_type`, [loc]);
-  return ok({ locations, loc, slots, counts, floor_names: FLOORS, type_names: VEHICLE_TYPES });
+  const [allLocations, slots, counts] = await Promise.all([locationsP, query(`SELECT s.*, l.name AS location_name FROM slots s JOIN parking_locations l ON l.id = s.location_id
+     WHERE ${where.join(" AND ")} ORDER BY ${FLOOR_SORT_SQL()}, s.vehicle_type, s.slot_no`, args),
+    query(`SELECT floor, vehicle_type, COUNT(*)::int AS n, COUNT(*) FILTER (WHERE is_active)::int AS active
+     FROM slots WHERE location_id = $1 GROUP BY floor, vehicle_type`, [loc])]);
+  return ok({ locations: allLocations, loc, slots, counts, floor_names: FLOORS, type_names: VEHICLE_TYPES });
 });
 
 // Reads and checks floor / type / number from the request body; returns [values, error]

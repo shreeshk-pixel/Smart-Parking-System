@@ -5,7 +5,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import QRCode from 'qrcode';
-import { api } from '../lib/api';
+import { api, apiCached } from '../lib/api';
 import { Ico } from './Icons';
 
 const C = 565.5; // ring circumference (2 * pi * 90)
@@ -64,9 +64,7 @@ function Content() {
   const autoPay = useRef(params.get('pay'));
 
   const load = useCallback(async () => {
-    const r = await api('/api/my_bookings');
-    setRows(r);
-    return r;
+    return apiCached('/api/my_bookings', setRows);
   }, []);
   useEffect(() => {
     load().then(r => {

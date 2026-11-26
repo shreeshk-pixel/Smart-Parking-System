@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import L from 'leaflet';
-import { api } from '../lib/api';
+import { api, apiCached } from '../lib/api';
 import { Ico } from './Icons';
 import { useCurrentUser } from './AppShell';
 
@@ -44,14 +44,19 @@ export default function FindParking() {
     const map = L.map(mapDiv.current, { zoomControl: false }).setView([15.8497, 74.4977], 13); // Belagavi
     L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(map);
-    api('/api/locations').then(locs => {
+    // Cached lots draw instantly; the fresh copy then updates the counts on the same markers
+    let fitted = false;
+    apiCached('/api/locations', locs => {
       locs.forEach(l => {
+        const tip = `<b>${esc(l.name)}</b><br>${l.free_slots}/${l.total_slots} free · Rs ${l.price_per_hour}/hr`;
+        const have = markers.current[l.id];
+        if (have) { have.l = l; have.m.setTooltipContent(tip); have.m.off('click').on('click', () => setLoc(l)); return; }
         const m = L.marker([l.latitude, l.longitude], { icon: pinIcon(l, false), title: l.name }).addTo(map);
-        m.bindTooltip(`<b>${esc(l.name)}</b><br>${l.free_slots}/${l.total_slots} free · Rs ${l.price_per_hour}/hr`, { direction: 'top', offset: [0, -50] });
+        m.bindTooltip(tip, { direction: 'top', offset: [0, -50] });
         m.on('click', () => setLoc(l));
         markers.current[l.id] = { m, l };
       });
-      if (locs.length) map.fitBounds(locs.map(l => [l.latitude, l.longitude]), { padding: [50, 50] });
+      if (locs.length && !fitted) { map.fitBounds(locs.map(l => [l.latitude, l.longitude]), { padding: [50, 50] }); fitted = true; }
       window.__locs = locs; // handy for tests
     }).catch(e => setMsg({ text: e.message, ok: false }));
     const fix = setTimeout(() => map.invalidateSize(), 300); // layout settles after fonts / sidebar

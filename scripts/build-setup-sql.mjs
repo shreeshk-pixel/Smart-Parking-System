@@ -7,6 +7,7 @@ export const SCHEMA_SQL = ${JSON.stringify(read('schema.sql'))};
 export const MIGRATE_SQL = ${JSON.stringify(read('migrate_v2_floors.sql'))};
 export const SEED_SQL = ${JSON.stringify(read('seed.sql'))};
 export const DEMO_SQL = ${JSON.stringify(read('seed_demo_v3.sql'))};
+export const INDEX_SQL = ${JSON.stringify(read('perf_indexes.sql'))};
 `;
 writeFileSync(new URL('../lib/setup-sql.js', import.meta.url), out);
 console.log('lib/setup-sql.js written');

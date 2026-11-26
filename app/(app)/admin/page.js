@@ -2,13 +2,13 @@
 // Admin dashboard: live stats, occupancy by floor and type, latest bookings.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api } from '../../../lib/api';
+import { apiCached } from '../../../lib/api';
 import { Ico } from '../../../components/Icons';
 
 export default function AdminDashboard() {
   const [s, setS] = useState(null);
   const [err, setErr] = useState('');
-  useEffect(() => { api('/api/admin_stats').then(setS).catch(e => setErr(e.message)); }, []);
+  useEffect(() => { apiCached('/api/admin_stats', setS).catch(e => setErr(e.message)); }, []);
   const v = k => (s ? s[k] : '-');
 
   return (

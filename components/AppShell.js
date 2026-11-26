@@ -3,18 +3,33 @@
 // The drawer is a plain checkbox (#navToggle) toggled by <label>s, so it opens even before JavaScript loads.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { Ico } from './Icons';
 import ThemeToggle from './ThemeToggle';
-import { api } from '../lib/api';
+import { api, prefetchApi, clearApiCache } from '../lib/api';
 
 const UserCtx = createContext(null);
 export const useCurrentUser = () => useContext(UserCtx);
 
+// The API each page loads first: warmed on hover / after login so the page opens with data already there
+const PAGE_API = { '/': '/api/locations', '/my-bookings': '/api/my_bookings', '/admin': '/api/admin_stats',
+                   '/admin/slots': '/api/admin/slots', '/admin/locations': '/api/admin/locations' };
+
+// Name / role for the sidebar, from the display-only sp_user cookie (set at login); falls back to /api/me
+function readUserCookie() {
+  try {
+    const v = document.cookie.split('; ').find((c) => c.startsWith('sp_user='))?.slice(8);
+    if (!v) return null;
+    return JSON.parse(decodeURIComponent(escape(atob(v.replace(/-/g, '+').replace(/_/g, '/')))));
+  } catch { return null; }
+}
+
 function NavItem({ href, icon, text, path }) {
   const active = href === '/' || href === '/admin' ? path === href : path.startsWith(href);
+  const warm = () => { if (PAGE_API[href]) prefetchApi(PAGE_API[href], 10000).catch(() => {}); };
   return (
-    <Link href={href} className={'nav-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined}>
+    <Link href={href} prefetch onMouseEnter={warm} onFocus={warm} onTouchStart={warm}
+          className={'nav-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined}>
       <Ico name={icon} /><span>{text}</span>
     </Link>
   );
@@ -24,13 +39,26 @@ function Brand({ home }) {
   return <Link className="brand" href={home}><span className="brand-mark">P</span><span>Smart<b>Park</b></span></Link>;
 }
 
-export default function AppShell({ user, children }) {
+export default function AppShell({ children }) {
   const path = usePathname() || '/';
-  const isAdmin = user?.role === 'admin';
+  // middleware.js keeps admins on /admin pages and customers off them, so the path tells us the role
+  const isAdmin = path.startsWith('/admin');
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const u = readUserCookie();
+    if (u) setUser(u); else api('/api/me').then(setUser).catch(() => {});
+  }, []);
+  // After the first paint, quietly load the data for the other pages of this role
+  useEffect(() => {
+    const urls = isAdmin ? ['/api/admin_stats', '/api/admin/slots', '/api/admin/locations'] : ['/api/locations', '/api/my_bookings'];
+    const run = () => urls.forEach((u) => prefetchApi(u, 15000).catch(() => {}));
+    const id = 'requestIdleCallback' in window ? requestIdleCallback(run, { timeout: 2500 }) : setTimeout(run, 1200);
+    return () => ('cancelIdleCallback' in window ? cancelIdleCallback(id) : clearTimeout(id));
+  }, [isAdmin]);
   const home = isAdmin ? '/admin' : '/';
   // Close the phone drawer after navigating
   useEffect(() => { const t = document.getElementById('navToggle'); if (t) t.checked = false; }, [path]);
-  async function logout() { try { await api('/api/logout', {}); } catch {} window.location.href = '/login'; }
+  async function logout() { clearApiCache(); try { await api('/api/logout', {}); } catch {} window.location.href = '/login'; }
 
   return (
     <UserCtx.Provider value={user}>
@@ -62,7 +90,7 @@ export default function AppShell({ user, children }) {
           <div className="sidebar-foot">
             <ThemeToggle variant="switch" />
             <div className="user-card">
-              <span className="avatar">{(user?.name || '?').slice(0, 1).toUpperCase()}</span>
+              <span className="avatar">{(user?.name || ' ').slice(0, 1).toUpperCase()}</span>
               <span className="user-meta"><b>{user?.name}</b><small>{isAdmin ? 'Administrator' : user?.email}</small></span>
               <button type="button" className="icon-btn" onClick={logout} title="Log out" aria-label="Log out"><Ico name="logout" /></button>
             </div>

@@ -1,7 +1,7 @@
 'use client';
 // Admin: manage slots. Names are built from floor + type + number (e.g. F1-B12).
 import { useCallback, useEffect, useState } from 'react';
-import { api } from '../../../../lib/api';
+import { api, apiCached } from '../../../../lib/api';
 
 const FLOORS = { LG: 'Lower Ground', G: 'Ground', F1: 'Floor 1', F2: 'Floor 2', F3: 'Floor 3' };
 const TYPES = { B: 'Bike', C: 'Car' };
@@ -43,11 +43,12 @@ export default function SlotsAdmin() {
 
   const load = useCallback(async (f = filter) => {
     const q = new URLSearchParams(Object.entries(f).filter(([, v]) => v)).toString();
-    const d = await api('/api/admin/slots' + (q ? '?' + q : ''));
-    setData(d);
-    setOne(o => ({ ...o, location_id: o.location_id || String(d.loc) }));
-    setMany(m => ({ ...m, location_id: m.location_id || String(d.loc) }));
-    if (!f.loc) setFilter(x => ({ ...x, loc: String(d.loc) }));
+    await apiCached('/api/admin/slots' + (q ? '?' + q : ''), (d) => {
+      setData(d);
+      setOne(o => ({ ...o, location_id: o.location_id || String(d.loc) }));
+      setMany(m => ({ ...m, location_id: m.location_id || String(d.loc) }));
+      if (!f.loc) setFilter(x => ({ ...x, loc: String(d.loc) }));
+    });
   }, [filter]);
   useEffect(() => { load().catch(e => setMsg({ text: e.message, ok: false })); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

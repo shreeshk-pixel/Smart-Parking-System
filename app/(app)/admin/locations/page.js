@@ -3,7 +3,7 @@
 // New lots get the same number of bike and car slots on every floor (LG, G, F1, F2, F3).
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { api } from '../../../../lib/api';
+import { api, apiCached } from '../../../../lib/api';
 // Leaflet needs the browser, so load the map only on the client
 const LocationPicker = dynamic(() => import('../../../../components/LocationPicker'), { ssr: false, loading: () => <p className="muted">Loading map…</p> });
 
@@ -15,7 +15,7 @@ export default function LocationsAdmin() {
   const [msg, setMsg] = useState(null);
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value }); // update one field
 
-  const load = () => api('/api/admin/locations').then(setList).catch(e => setMsg({ text: e.message, ok: false }));
+  const load = () => apiCached('/api/admin/locations', setList).catch(e => setMsg({ text: e.message, ok: false }));
   useEffect(() => { load(); }, []);
 
   async function save(e) {

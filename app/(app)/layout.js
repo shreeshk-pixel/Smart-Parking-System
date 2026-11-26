@@ -1,12 +1,9 @@
-// Every logged-in page sits inside the app shell (sidebar / tab bar). middleware.js already sent guests to /login.
-import { redirect } from 'next/navigation';
-import { getSession } from '../../lib/session';
+// Every logged-in page sits inside the app shell (sidebar / tab bar).
+// middleware.js already sent guests to /login and keeps each role on its own pages, so this layout
+// doesn't need to read the session. That keeps every page static: the browser can prefetch them and
+// navigating between pages doesn't wait for the server. Data comes from the APIs, which check the session.
 import AppShell from '../../components/AppShell';
 
-export const dynamic = 'force-dynamic';
-
-export default async function AppLayout({ children }) {
-  const user = await getSession();
-  if (!user) redirect('/login');
-  return <AppShell user={{ id: user.id, name: user.name, email: user.email, role: user.role }}>{children}</AppShell>;
+export default function AppLayout({ children }) {
+  return <AppShell>{children}</AppShell>;
 }
