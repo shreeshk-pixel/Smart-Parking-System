@@ -1,7 +1,7 @@
 'use client';
 // Admin reports: pick a date range, preview it, then download the same numbers as PDF or CSV.
 import { useEffect, useState } from 'react';
-import { api } from '../../../../lib/api';
+import { apiCached, reportUrl } from '../../../../lib/api';
 import { Ico } from '../../../../components/Icons';
 
 const IST = 330 * 60000;
@@ -18,7 +18,7 @@ export default function ReportsPage() {
 
   async function load(rg = range) {
     setBusy(true); setErr('');
-    try { setR(await api(`/api/admin/report?from=${rg.from}&to=${rg.to}`)); } catch (e) { setErr(e.message); setR(null); }
+    try { await apiCached(reportUrl(rg.from, rg.to), setR); } catch (e) { setErr(e.message); setR(null); }
     setBusy(false);
   }
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps

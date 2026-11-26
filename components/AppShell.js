@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Ico } from './Icons';
 import ThemeToggle from './ThemeToggle';
-import { api, prefetchApi, clearApiCache } from '../lib/api';
+import { api, prefetchApi, clearApiCache, reportUrl } from '../lib/api';
 
 const UserCtx = createContext(null);
 export const useCurrentUser = () => useContext(UserCtx);
@@ -14,6 +14,7 @@ export const useCurrentUser = () => useContext(UserCtx);
 // The API each page loads first: warmed on hover / after login so the page opens with data already there
 const PAGE_API = { '/': '/api/locations', '/my-bookings': '/api/my_bookings', '/admin': '/api/admin_stats',
                    '/admin/slots': '/api/admin/slots', '/admin/locations': '/api/admin/locations' };
+const pageApi = (href) => (href === '/admin/reports' ? reportUrl() : PAGE_API[href]);
 
 // Name / role for the sidebar, from the display-only sp_user cookie (set at login); falls back to /api/me
 function readUserCookie() {
@@ -26,7 +27,7 @@ function readUserCookie() {
 
 function NavItem({ href, icon, text, path }) {
   const active = href === '/' || href === '/admin' ? path === href : path.startsWith(href);
-  const warm = () => { if (PAGE_API[href]) prefetchApi(PAGE_API[href], 10000).catch(() => {}); };
+  const warm = () => { const u = pageApi(href); if (u) prefetchApi(u, 10000).catch(() => {}); };
   return (
     <Link href={href} prefetch onMouseEnter={warm} onFocus={warm} onTouchStart={warm}
           className={'nav-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined}>
@@ -50,8 +51,11 @@ export default function AppShell({ children }) {
   }, []);
   // After the first paint, quietly load the data for the other pages of this role
   useEffect(() => {
-    const urls = isAdmin ? ['/api/admin_stats', '/api/admin/slots', '/api/admin/locations'] : ['/api/locations', '/api/my_bookings'];
-    const run = () => urls.forEach((u) => prefetchApi(u, 15000).catch(() => {}));
+    const urls = isAdmin ? ['/api/admin_stats', '/api/admin/slots', '/api/admin/locations', reportUrl()] : ['/api/locations', '/api/my_bookings'];
+    const run = () => {
+      urls.forEach((u) => prefetchApi(u, 15000).catch(() => {}));
+      if (!isAdmin) import('./FindParking').catch(() => {}); // the map code is the biggest chunk: fetch it early
+    };
     const id = 'requestIdleCallback' in window ? requestIdleCallback(run, { timeout: 2500 }) : setTimeout(run, 1200);
     return () => ('cancelIdleCallback' in window ? cancelIdleCallback(id) : clearTimeout(id));
   }, [isAdmin]);

@@ -2,12 +2,13 @@
 // Login form. Admins go to the dashboard, everyone else to the map (or back to the page they asked for).
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
-import { api } from '../../../lib/api';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { api, prefetchApi } from '../../../lib/api';
 import ThemeToggle from '../../../components/ThemeToggle';
 
 function LoginForm() {
   const params = useSearchParams();
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,7 +19,11 @@ function LoginForm() {
     try {
       const user = await api('/api/login', { email, password });
       const next = params.get('next');
-      window.location.href = next && next.startsWith('/') && !next.startsWith('//') ? next : user.role === 'admin' ? '/admin' : '/';
+      const home = user.role === 'admin' ? '/admin' : '/';
+      const target = next && next.startsWith('/') && !next.startsWith('//') && next.startsWith('/admin') === (user.role === 'admin') ? next : home;
+      // Start loading the landing page's data now, and switch pages without a full reload
+      prefetchApi(target === '/admin' ? '/api/admin_stats' : target === '/' ? '/api/locations' : '/api/my_bookings').catch(() => {});
+      router.replace(target);
     } catch (err) { setError(err.message); setBusy(false); }
   }
   return (
