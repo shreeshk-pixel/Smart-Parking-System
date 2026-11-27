@@ -10,6 +10,10 @@ const PUBLIC_APIS = ["/api/login", "/api/register"];
 // Pages and APIs for parking customers only. Admins manage the system and never book.
 const USER_PAGES = ["/", "/my-bookings"];
 const USER_APIS = ["/api/book", "/api/pay", "/api/cancel", "/api/my_bookings"];
+// Admin-only APIs. Anyone else gets a plain 404, as if they didn't exist (the routes check again themselves).
+const isAdminApi = (p) => p === "/api/admin" || p.startsWith("/api/admin/") || ["/api/admin_stats", "/api/verify_qr", "/api/exit_code"].includes(p);
+const isAdminPage = (p) => p === "/admin" || p.startsWith("/admin/");
+const notFoundJson = () => NextResponse.json({ ok: false, error: "not found" }, { status: 404 });
 // Sessions signed before this moment are rejected (the demo admin password was public until then)
 const SESSIONS_VALID_AFTER = Date.parse("2026-11-26T15:30:00Z") / 1000;
 
@@ -43,7 +47,8 @@ async function readSession(req) {
   const [data, sig] = value.split(".");
   try {
     const secret = process.env.SESSION_SECRET || (process.env.NODE_ENV === "production" ? "" : "local-development-only-secret");
-    if (!secret || value.length > 2000) return null; // no secret configured = nobody is logged in (fail closed)
+    // No secret (or a weak one) in production = nobody is logged in (fail closed), same rule as lib/secret.js
+    if (!secret || (process.env.NODE_ENV === "production" && secret.length < 32) || value.length > 2000) return null;
     const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret),
       { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
     const expected = bytesToB64url(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data)));
@@ -73,8 +78,12 @@ export async function middleware(req) {
 
   // Logged in: the login and register pages just send you into the app
   if (PUBLIC_PAGES.includes(pathname)) return NextResponse.redirect(new URL(user.role === "admin" ? "/admin" : "/", req.url));
-  // Admin pages are for admins only (admin APIs also check this themselves and answer 403)
-  if (pathname.startsWith("/admin") && user.role !== "admin") return NextResponse.redirect(new URL("/", req.url));
+  // Admin pages and APIs are for admins only. Everyone else gets a 404, so they can't even tell they exist
+  // (the admin APIs also check this themselves).
+  if (user.role !== "admin") {
+    if (isAdminApi(pathname)) return notFoundJson();
+    if (isAdminPage(pathname)) return NextResponse.rewrite(new URL("/404", req.url), { status: 404 });
+  }
   // Customer pages and booking APIs are not for admins
   if (user.role === "admin") {
     if (USER_PAGES.includes(pathname)) return NextResponse.redirect(new URL("/admin", req.url));

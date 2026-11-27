@@ -12,3 +12,6 @@ flow.md
 demo-accounts*
 *credentials*
 *creds*
+
+# example env file with placeholders only
+!.env.example

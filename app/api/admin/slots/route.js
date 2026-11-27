@@ -6,7 +6,7 @@
 // DELETE {id} -> delete, or deactivate if it already has bookings (keeps history and reports correct)
 import { query, queryOne, transaction } from "@/lib/db";
 import { ok, fail, needAdmin, readBody, handle } from "@/lib/server";
-import { audited } from "@/lib/security";
+import { audited, rateLimit } from "@/lib/security";
 import { FLOORS, VEHICLE_TYPES, FLOOR_SORT_SQL, validFloor, validType, slotLabel } from "@/lib/floors";
 
 export const dynamic = "force-dynamic";
@@ -52,8 +52,10 @@ async function nextNo(db, loc, floor, type) {
 }
 
 export const POST = handle(audited("slot_add", async (req) => {
-  const [, err] = await needAdmin();
+  const [admin, err] = await needAdmin();
   if (err) return err;
+  const limited = await rateLimit(`admin_write:${admin.id}`, 300, 3600);
+  if (limited) return limited;
   const b = await readBody(req);
   const loc = parseInt(b.location_id) || 0;
   if (!loc) return fail("location is required");
@@ -86,8 +88,10 @@ export const POST = handle(audited("slot_add", async (req) => {
 }));
 
 export const PUT = handle(audited("slot_edit", async (req) => {
-  const [, err] = await needAdmin();
+  const [admin, err] = await needAdmin();
   if (err) return err;
+  const limited = await rateLimit(`admin_write:${admin.id}`, 300, 3600);
+  if (limited) return limited;
   const b = await readBody(req);
   const [v, bad] = parseSlot(b, true);
   if (bad) return fail(bad);
@@ -104,8 +108,10 @@ export const PUT = handle(audited("slot_edit", async (req) => {
 }));
 
 export const DELETE = handle(audited("slot_delete", async (req) => {
-  const [, err] = await needAdmin();
+  const [admin, err] = await needAdmin();
   if (err) return err;
+  const limited = await rateLimit(`admin_write:${admin.id}`, 300, 3600);
+  if (limited) return limited;
   const id = parseInt((await readBody(req)).id) || 0;
   const used = await queryOne("SELECT COUNT(*)::int AS n FROM bookings WHERE slot_id = $1", [id]);
   if (used.n > 0) {

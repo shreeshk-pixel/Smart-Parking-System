@@ -7,13 +7,14 @@ import { api, prefetchApi } from '../../../lib/api';
 import ThemeToggle from '../../../components/ThemeToggle';
 
 // Only same-site paths are allowed after login (no "//evil.com", "/\\evil.com" or "https://..."),
-// and only paths that belong to the role (admin pages for admins, customer pages for customers).
-function safeNext(next, role) {
+// and only paths that belong to the role. The server tells us the role's home and page prefixes, so
+// the admin page names are not in this (public) page's code.
+function safeNext(next, areas) {
   if (!next || !/^\/[A-Za-z0-9\-_/?=&.%]*$/.test(next) || next.startsWith('//')) return null;
   try {
     const u = new URL(next, window.location.origin);
     if (u.origin !== window.location.origin) return null;
-    if (u.pathname.startsWith('/admin') !== (role === 'admin')) return null;
+    if (!(areas || []).some((a) => (a === '/' ? u.pathname === '/' : u.pathname === a || u.pathname.startsWith(a + '/')))) return null;
     return u.pathname + u.search;
   } catch { return null; }
 }
@@ -31,10 +32,9 @@ function LoginForm() {
     try {
       const user = await api('/api/login', { email, password });
       const next = params.get('next');
-      const home = user.role === 'admin' ? '/admin' : '/';
-      const target = safeNext(next, user.role) || home;
+      const target = safeNext(next, user.areas) || user.home;
       // Start loading the landing page's data now, and switch pages without a full reload
-      prefetchApi(target === '/admin' ? '/api/admin_stats' : target === '/' ? '/api/locations' : '/api/my_bookings').catch(() => {});
+      if (target === user.home && user.home_api) prefetchApi(user.home_api).catch(() => {});
       router.replace(target);
     } catch (err) { setError(err.message); setBusy(false); }
   }

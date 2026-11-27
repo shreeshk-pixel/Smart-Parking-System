@@ -1,7 +1,8 @@
 'use client';
 // Admin reports: pick a date range, preview it, then download the same numbers as PDF or CSV.
 import { useEffect, useState } from 'react';
-import { apiCached, reportUrl } from '../../../../lib/api';
+import { apiCached } from '../../../../lib/api';
+import { reportUrl } from '../../../../lib/adminApi';
 import { Ico } from '../../../../components/Icons';
 
 const IST = 330 * 60000;

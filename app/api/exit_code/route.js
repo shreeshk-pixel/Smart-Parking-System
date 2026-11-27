@@ -4,7 +4,7 @@
 // 15 minutes (re-scanning the QR does NOT reset the count, so a copied QR alone can't be used to guess).
 import { query, queryOne } from "@/lib/db";
 import { ok, fail, needAdmin, readBody, handle } from "@/lib/server";
-import { audit } from "@/lib/security";
+import { audit, rateLimit } from "@/lib/security";
 import { exitCodeMatches } from "@/lib/exitCode";
 
 const MAX_TRIES = 5;
@@ -13,6 +13,8 @@ const LOCK = "interval '15 minutes'";
 export const POST = handle(async (req) => {
   const [admin, err] = await needAdmin();
   if (err) return err;
+  const limited = await rateLimit(`exitcode:admin:${admin.id}`, 60, 900);
+  if (limited) return limited;
   const body = await readBody(req);
   const id = parseInt(body.booking_id) || 0;
   const code = String(body.code ?? "").replace(/\s/g, "");

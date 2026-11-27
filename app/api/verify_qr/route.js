@@ -7,12 +7,14 @@
 import { query, queryOne } from "@/lib/db";
 import { ok, fail, needAdmin, readBody, handle } from "@/lib/server";
 import { floorName } from "@/lib/floors";
-import { parseQr, qrValid, audit } from "@/lib/security";
+import { parseQr, qrValid, audit, rateLimit } from "@/lib/security";
 import { fillExitCodes, openExitCode } from "@/lib/exitCode";
 
 export const POST = handle(async (req) => {
   const [admin, err] = await needAdmin();
   if (err) return err;
+  const limited = await rateLimit(`scan:admin:${admin.id}`, 600, 3600);
+  if (limited) return limited;
   const pass = parseQr((await readBody(req)).qr_token);
   if (!pass) return fail("invalid QR code", 404);
   const b = await queryOne(`

@@ -1,10 +1,13 @@
 // POST /api/cancel  {booking_id}  -> only your own unpaid booking
 import { query, queryOne } from "@/lib/db";
 import { ok, fail, needCustomer, readBody, handle } from "@/lib/server";
+import { rateLimit } from "@/lib/security";
 
 export const POST = handle(async (req) => {
   const [user, err] = await needCustomer();
   if (err) return err;
+  const limited = await rateLimit(`cancel:user:${user.id}`, 30, 3600);
+  if (limited) return limited;
   const id = parseInt((await readBody(req)).booking_id) || 0;
   const b = await queryOne("SELECT * FROM bookings WHERE id = $1 AND user_id = $2", [id, user.id]);
   if (!b) return fail("booking not found", 404);

@@ -54,20 +54,24 @@ npm run dev
 
 ## Security
 - **Logins:** 5 wrong passwords for one email (or 50 from one IP) in 15 minutes returns 429 for a while. The same message and roughly the same response time whether the email exists or not; registering an existing email answers the same as a new one.
-- **Passwords:** at least 8 characters with a letter and a number (bcrypt).
+- **Passwords:** at least 8 characters with a letter and a number, stored as bcrypt hashes with cost 12. Older, cheaper hashes are upgraded automatically the next time that user logs in.
 - **Sessions:** HMAC-signed HttpOnly, SameSite=Lax, Secure cookie, valid 24 hours. Every API re-checks the user in the database, so logout (which bumps `users.token_version`) kills the session everywhere and role changes apply at once.
-- **CSRF:** APIs only accept JSON, and the middleware blocks write requests whose `Origin` is another site.
+- **CSRF / CORS:** APIs only accept JSON (`415` otherwise, bodies over 20 KB get `413`), and the middleware blocks write requests whose `Origin` is another site. No CORS headers are sent, so other sites can't read API responses. Unsupported methods get `405`.
+- **Admin area:** admin pages and APIs answer `404` to anyone who isn't an admin, exactly like a page that doesn't exist. The admin pages live in their own route group (`app/(admin)`), so the admin menu and page code are never downloaded by customers.
+- **Rate limits** (per user, IP or admin, stored in the database): login, register, booking, payment, cancel, QR scan, exit code and admin changes.
 - **QR passes** are `SP1.<booking>.<expiry>.<HMAC>`: they can't be guessed, edited or pointed at another booking, and they expire a day after the booking ends. Entry works once.
 - **Exit code:** every booking gets a random 6-digit exit code (Node `crypto.randomInt`) when it is created. It is stored encrypted (AES-256-GCM, key derived from `SESSION_SECRET`) in `bookings.exit_code_enc` and is shown only to the customer, on their paid ticket. Admin APIs, the scan page and reports never include it. At exit the admin scans the QR and types the code the customer reads out; it is compared in constant time. 5 wrong codes lock that booking's exit for 15 minutes (scanning the QR again does not reset the count), and every wrong try, lock and exit is in the activity log. Bookings made before this change get a code automatically on the next deploy.
 - **Input validation** with zod (names, emails, phone, vehicle numbers, location names and addresses: no HTML). The price is always calculated on the server; bookings are limited to 24 hours and 30 days ahead.
-- **Headers:** Content-Security-Policy, HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy (set in `next.config.mjs`).
+- **Headers:** Content-Security-Policy, HSTS, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, Cross-Origin-Opener/Resource-Policy (set in `next.config.mjs`). No `X-Powered-By`, no browser source maps.
+- **Secrets:** only `DATABASE_URL` and `SESSION_SECRET`, both server-only (see `.env.example`). In production the app fails closed if `SESSION_SECRET` is missing or shorter than 32 characters. The database connection uses TLS with certificate checking.
 - **Privacy:** the report preview masks emails and phone numbers; full details are only in the CSV/PDF downloads, which are logged. CSV cells starting with `=`, `+`, `-` or `@` are neutralised (no Excel formula injection).
 - **Activity log** (Admin → Activity log, table `audit_log`): logins, failed and blocked logins, admin changes, QR scans and report exports.
 
 ## Project structure
 - `middleware.js`: the login wall for pages and APIs.
 - `app/(auth)/`: the login and register pages.
-- `app/(app)/`: the signed-in pages (find parking, my bookings, and the admin dashboard, locations, slots, scan and reports).
+- `app/(app)/`: the customer pages (find parking, my bookings).
+- `app/(admin)/`: the admin pages (dashboard, locations, slots, scan, reports, activity log).
 - `app/api/*`: JSON routes. `app/api/admin/report` serves `?format=json|csv|pdf`.
 - `components/`: the app shell, theme toggle, icons, map and booking UI, and the scanner.
 - `lib/`: the database pool, auto setup, session, security helpers (`security.js`: rate limits, audit log, input rules, signed QR passes), floor helpers, and report builders (CSV and PDF).

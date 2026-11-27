@@ -57,8 +57,6 @@ CREATE TABLE IF NOT EXISTS bookings (
   payment_ref    VARCHAR(100),
   paid_at        TIMESTAMPTZ,
   qr_token       VARCHAR(64) UNIQUE,
-  exit_otp_hash  VARCHAR(255),
-  otp_expires_at TIMESTAMPTZ,
   entry_time     TIMESTAMPTZ,
   exit_time      TIMESTAMPTZ,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),

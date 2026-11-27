@@ -3,11 +3,13 @@
 import crypto from "crypto";
 import { query, queryOne } from "@/lib/db";
 import { ok, fail, needCustomer, readBody, handle } from "@/lib/server";
-import { signQr } from "@/lib/security";
+import { signQr, rateLimit } from "@/lib/security";
 
 export const POST = handle(async (req) => {
   const [user, err] = await needCustomer();
   if (err) return err;
+  const limited = await rateLimit(`pay:user:${user.id}`, 30, 3600);
+  if (limited) return limited;
   const id = parseInt((await readBody(req)).booking_id) || 0;
   const b = await queryOne(`SELECT *, EXTRACT(EPOCH FROM end_time)::bigint AS end_ts FROM bookings
                             WHERE id = $1 AND user_id = $2`, [id, user.id]);

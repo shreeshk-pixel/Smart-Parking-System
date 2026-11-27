@@ -5,11 +5,14 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { query } from "@/lib/db";
 import { ok, readBody, handle } from "@/lib/server";
-import { NAME, EMAIL, PHONE, PASSWORD, check, clientIp, rateLimit, audit } from "@/lib/security";
+import { NAME, EMAIL, PHONE, PASSWORD, check, clientIp, rateLimit, audit, BCRYPT_COST } from "@/lib/security";
 
 const Register = z.object({ name: NAME, email: EMAIL, phone: PHONE, password: PASSWORD });
 
 export const POST = handle(async (req) => {
+  // Any attempt counts (30/hour per IP, even invalid ones); valid sign-ups are limited to 5/hour per IP below
+  const tries = await rateLimit(`register_try:ip:${clientIp(req)}`, 30, 3600);
+  if (tries) return tries;
   const raw = await readBody(req);
   const [b, bad] = check(Register, { name: String(raw.name ?? ""), email: String(raw.email ?? ""),
     phone: String(raw.phone ?? ""), password: String(raw.password ?? "") });
@@ -17,7 +20,7 @@ export const POST = handle(async (req) => {
   const limited = await rateLimit(`register:ip:${clientIp(req)}`, 5, 3600);
   if (limited) return limited;
 
-  const hash = await bcrypt.hash(b.password, 10);
+  const hash = await bcrypt.hash(b.password, BCRYPT_COST);
   const rows = await query(
     `INSERT INTO users (name, email, phone, password_hash, role)
      SELECT $1::text, $2::text, $3::text, $4::text, 'user' WHERE NOT EXISTS (SELECT 1 FROM users WHERE LOWER(email) = $2::text)

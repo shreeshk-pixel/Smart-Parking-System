@@ -6,7 +6,7 @@
 import { query, transaction } from "@/lib/db";
 import { ok, fail, needAdmin, readBody, handle } from "@/lib/server";
 import { FLOOR_ORDER } from "@/lib/floors";
-import { PLACE_NAME, ADDRESS, check, audited } from "@/lib/security";
+import { PLACE_NAME, ADDRESS, check, audited, rateLimit } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +20,10 @@ export const GET = handle(async () => {
 });
 
 export const POST = handle(audited("location_add", async (req) => {
-  const [, err] = await needAdmin();
+  const [admin, err] = await needAdmin();
   if (err) return err;
+  const limited = await rateLimit(`admin_write:${admin.id}`, 300, 3600);
+  if (limited) return limited;
   const b = await readBody(req);
 
   // 1. Read and check the inputs

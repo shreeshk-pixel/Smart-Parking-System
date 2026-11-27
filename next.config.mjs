@@ -30,10 +30,13 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()" },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
 ];
 
 const nextConfig = {
-  poweredByHeader: false,
+  poweredByHeader: false,            // no "X-Powered-By: Next.js"
+  productionBrowserSourceMaps: false, // never publish source maps (this is the default; kept explicit)
   serverExternalPackages: ["jspdf", "jspdf-autotable"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

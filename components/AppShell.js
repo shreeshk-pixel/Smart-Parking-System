@@ -1,20 +1,18 @@
 'use client';
 // App frame for logged-in pages: left sidebar on desktop, top bar + slide-out drawer + bottom tab bar on phones.
 // The drawer is a plain checkbox (#navToggle) toggled by <label>s, so it opens even before JavaScript loads.
+// The menu itself comes from CustomerShell or AdminShell, so the admin menu (page names and API paths) is
+// only in the admin pages' code: customers' browsers never download it.
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Ico } from './Icons';
 import ThemeToggle from './ThemeToggle';
-import { api, prefetchApi, clearApiCache, reportUrl } from '../lib/api';
+import { api, prefetchApi, clearApiCache } from '../lib/api';
 
 const UserCtx = createContext(null);
 export const useCurrentUser = () => useContext(UserCtx);
 
-// The API each page loads first: warmed on hover / after login so the page opens with data already there
-const PAGE_API = { '/': '/api/locations', '/my-bookings': '/api/my_bookings', '/admin': '/api/admin_stats',
-                   '/admin/slots': '/api/admin/slots', '/admin/locations': '/api/admin/locations' };
-const pageApi = (href) => (href === '/admin/reports' ? reportUrl() : PAGE_API[href]);
 
 // Name / role for the sidebar, from the display-only sp_user cookie (set at login); falls back to /api/me
 function readUserCookie() {
@@ -25,9 +23,10 @@ function readUserCookie() {
   } catch { return null; }
 }
 
-function NavItem({ href, icon, text, path }) {
-  const active = href === '/' || href === '/admin' ? path === href : path.startsWith(href);
-  const warm = () => { const u = pageApi(href); if (u) prefetchApi(u, 10000).catch(() => {}); };
+// item.api = the API the page loads first (a URL or a function returning one): warmed on hover
+function NavItem({ item: { href, icon, text, api: pageApi }, home, path }) {
+  const active = href === home ? path === href : path.startsWith(href);
+  const warm = () => { const u = typeof pageApi === 'function' ? pageApi() : pageApi; if (u) prefetchApi(u, 10000).catch(() => {}); };
   return (
     <Link href={href} prefetch onMouseEnter={warm} onFocus={warm} onTouchStart={warm}
           className={'nav-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined}>
@@ -40,10 +39,11 @@ function Brand({ home }) {
   return <Link className="brand" href={home}><span className="brand-mark">P</span><span>Smart<b>Park</b></span></Link>;
 }
 
-export default function AppShell({ children }) {
+// role: 'admin' | 'customer'; menu: {label, items}; tabs: phone tab bar items; warmUrls: () => API URLs to load
+// after the first paint; warmCode: optional () => import(...) for a big page chunk to fetch early
+export default function AppShell({ children, role, home, menu, tabs, warmUrls, warmCode }) {
   const path = usePathname() || '/';
-  // middleware.js keeps admins on /admin pages and customers off them, so the path tells us the role
-  const isAdmin = path.startsWith('/admin');
+  const isAdmin = role === 'admin';
   const [user, setUser] = useState(null);
   useEffect(() => {
     const u = readUserCookie();
@@ -51,15 +51,13 @@ export default function AppShell({ children }) {
   }, []);
   // After the first paint, quietly load the data for the other pages of this role
   useEffect(() => {
-    const urls = isAdmin ? ['/api/admin_stats', '/api/admin/slots', '/api/admin/locations', reportUrl()] : ['/api/locations', '/api/my_bookings'];
     const run = () => {
-      urls.forEach((u) => prefetchApi(u, 15000).catch(() => {}));
-      if (!isAdmin) import('./FindParking').catch(() => {}); // the map code is the biggest chunk: fetch it early
+      (warmUrls ? warmUrls() : []).forEach((u) => prefetchApi(u, 15000).catch(() => {}));
+      if (warmCode) warmCode().catch(() => {});
     };
     const id = 'requestIdleCallback' in window ? requestIdleCallback(run, { timeout: 2500 }) : setTimeout(run, 1200);
     return () => ('cancelIdleCallback' in window ? cancelIdleCallback(id) : clearTimeout(id));
-  }, [isAdmin]);
-  const home = isAdmin ? '/admin' : '/';
+  }, [warmUrls, warmCode]);
   // Close the phone drawer after navigating
   useEffect(() => { const t = document.getElementById('navToggle'); if (t) t.checked = false; }, [path]);
   async function logout() { clearApiCache(); try { await api('/api/logout', {}); } catch {} window.location.href = '/login'; }
@@ -73,25 +71,10 @@ export default function AppShell({ children }) {
             <Brand home={home} />
             <label htmlFor="navToggle" className="icon-btn only-mobile" aria-label="Close menu"><Ico name="close" /></label>
           </div>
-          {/* Admins only manage the system (they don't book); normal users never see the admin pages */}
-          {!isAdmin && (
-            <nav className="nav-group">
-              <span className="nav-label">Parking</span>
-              <NavItem href="/" icon="map" text="Find parking" path={path} />
-              <NavItem href="/my-bookings" icon="ticket" text="My bookings" path={path} />
-            </nav>
-          )}
-          {isAdmin && (
-            <nav className="nav-group">
-              <span className="nav-label">Admin</span>
-              <NavItem href="/admin" icon="dash" text="Dashboard" path={path} />
-              <NavItem href="/admin/locations" icon="pin" text="Locations" path={path} />
-              <NavItem href="/admin/slots" icon="grid" text="Slots" path={path} />
-              <NavItem href="/admin/scan" icon="scan" text="Scan pass" path={path} />
-              <NavItem href="/admin/reports" icon="report" text="Reports" path={path} />
-              <NavItem href="/admin/activity" icon="clock" text="Activity log" path={path} />
-            </nav>
-          )}
+          <nav className="nav-group">
+            <span className="nav-label">{menu.label}</span>
+            {menu.items.map((it) => <NavItem key={it.href} item={it} home={home} path={path} />)}
+          </nav>
           <div className="sidebar-foot">
             <ThemeToggle variant="switch" />
             <div className="user-card">
@@ -113,15 +96,7 @@ export default function AppShell({ children }) {
         </div>
         {/* Phone bottom tab bar (hidden on desktop, where the sidebar is always visible) */}
         <nav className="tabbar" aria-label="Quick navigation">
-          {isAdmin ? <>
-            <NavItem href="/admin" icon="dash" text="Dashboard" path={path} />
-            <NavItem href="/admin/slots" icon="grid" text="Slots" path={path} />
-            <NavItem href="/admin/scan" icon="scan" text="Scan" path={path} />
-            <NavItem href="/admin/reports" icon="report" text="Reports" path={path} />
-          </> : <>
-            <NavItem href="/" icon="map" text="Find" path={path} />
-            <NavItem href="/my-bookings" icon="ticket" text="Bookings" path={path} />
-          </>}
+          {tabs.map((it) => <NavItem key={it.href} item={it} home={home} path={path} />)}
           <label htmlFor="navToggle" className="nav-item"><Ico name="menu" /><span>More</span></label>
         </nav>
       </div>

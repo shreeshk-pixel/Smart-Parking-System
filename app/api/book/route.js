@@ -10,6 +10,9 @@ import { newExitCode, sealExitCode } from "@/lib/exitCode";
 export const POST = handle(async (req) => {
   const [user, err] = await needCustomer();
   if (err) return err;
+  // Any attempt counts (120/hour, even invalid ones); valid bookings are limited to 30/hour below
+  const tries = await rateLimit(`book_try:user:${user.id}`, 120, 3600);
+  if (tries) return tries;
   const b = await readBody(req);
   const slotId = parseInt(b.slot_id);
   const start = parseTime(b.start_time);
